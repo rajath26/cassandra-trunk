@@ -74,9 +74,14 @@ import org.apache.cassandra.streaming.StreamLockfile;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.concurrent.OpOrder;
+import org.apache.cassandra.utils.ForgetfulBloomFilter;
 
 public class ColumnFamilyStore implements ColumnFamilyStoreMBean
 {
+	private static final int initialNumberOfBFs = 3;
+	private static final long initialRefreshRate = 120;
+	private static final double targetFPP = 0.01;
+	
     private static final Logger logger = LoggerFactory.getLogger(ColumnFamilyStore.class);
 
     private static final ExecutorService flushExecutor = new JMXEnabledThreadPoolExecutor(DatabaseDescriptor.getFlushWriters(),
@@ -104,6 +109,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     public final IPartitioner partitioner;
     private final String mbeanName;
     private volatile boolean valid = true;
+    private ForgetfulBloomFilter CounterCFFBF = new ForgetfulBloomFilter(initialNumberOfBFs, initialRefreshRate, targetFPP);
 
     /**
      * Memtables and SSTables on disk for this column family.
@@ -1135,6 +1141,9 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         long start = System.nanoTime();
 
         Memtable mt = data.getMemtableFor(opGroup);
+        if ( metadata.isCounter() ) {
+        	CounterCFFBF.insert(columnFamily.getColumn());
+        }
         mt.put(key, columnFamily, indexer, opGroup, replayPosition);
         maybeUpdateRowCache(key);
         metric.writeLatency.addNano(System.nanoTime() - start);

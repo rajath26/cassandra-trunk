@@ -35,6 +35,7 @@ public abstract class BloomFilter implements IFilter
 
     public final IBitSet bitset;
     public final int hashCount;
+    public long insertedElementCount = 0;
 
     BloomFilter(int hashes, IBitSet bitset)
     {
@@ -91,6 +92,7 @@ public abstract class BloomFilter implements IFilter
         {
             bitset.set(indexes[i]);
         }
+        insertedElementCount++;
     }
 
     public final boolean isPresent(ByteBuffer key)
@@ -115,4 +117,16 @@ public abstract class BloomFilter implements IFilter
     {
         bitset.close();
     }
+    
+    public double effectiveFpp() {
+    	return Math.pow(1.0 - Math.exp(-1.0 * hashCount * insertedElementCount / bitset.capacity() ), 1.0 * hashCount);
+    }
+    
+    public double effectiveModifiedFpp() {
+    	return Math.pow(1.0-Math.exp(-1.0 * hashCount * (insertedElementCount/2) / bitset.capacity() ), 1.0 * hashCount);
+    }
+    
+    
+    
+    
 }
